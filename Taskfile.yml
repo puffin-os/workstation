@@ -2,14 +2,12 @@ version: '3'
 
 tasks:
   summary:
-    desc: Show the workstation image build summary
     cmds:
       - task: ':keys'
       - mkdir -p '{{.ROOT}}/out' '{{.ROOT}}/.cache/mkosi' '{{.ROOT}}/.cache/packages'
       - '{{.CONTAINER}} -w /work/workstation {{.BUILDER}} mkosi --profile=dev {{.KEYS}} summary'
 
   flatpaks:lock:
-    desc: Regenerate the locked Flatpak application pins
     cmds:
       - task: ':builder'
       - mkdir -p '{{.ROOT}}/out'
@@ -17,7 +15,6 @@ tasks:
 
   flatpaks:build:
     internal: true
-    desc: Build the locked Flatpak seed tarball
     sources:
       - flatpaks.apps
       - flatpaks.lock
@@ -30,14 +27,11 @@ tasks:
       - '{{.CONTAINER}} {{.BUILDER}} /work/dev/flatpak-seed.sh build'
 
   build:
-    desc: Build the workstation image
     cmds:
       - task: ':keys'
       - task: flatpaks:build
       - mkdir -p '{{.ROOT}}/out' '{{.ROOT}}/.cache/mkosi' '{{.ROOT}}/.cache/packages'
-      - >-
-        {{.CONTAINER}} -w /work/workstation {{.BUILDER}} mkosi --profile=dev {{.KEYS}}
-        {{if .IMAGE_VERSION}}--image-version={{.IMAGE_VERSION}}{{end}} -f build
+      - '{{.CONTAINER}} -w /work/workstation {{.BUILDER}} mkosi --profile=dev {{.KEYS}} -f build'
       - >-
         '{{.ROOT}}/dev/install-flatpak-seed.sh'
         '{{.ROOT}}/out/puffin-workstation-x86-64.raw'
@@ -45,32 +39,17 @@ tasks:
 
   ensure-built:
     internal: true
-    desc: Build the workstation image if sources changed
-    method: checksum
-    sources:
-      - flatpaks.apps
-      - flatpaks.lock
-      - mkosi.conf
-      - ../desktop/mkosi.conf
-      - ../desktop/mkosi.extra/**
-      - ../base/mkosi.conf
-      - ../base/mkosi.extra/**
-      - ../base/mkosi.repart/**
-      - ../shared/mkosi.extra/**
-      - '{{.ROOT}}/out/puffin-workstation-flatpaks-x86-64.tar.zst'
-    generates:
-      - '{{.ROOT}}/out/puffin-workstation-x86-64.raw'
+    status:
+      - test -f '{{.ROOT}}/out/puffin-workstation-x86-64.raw'
     cmds:
       - task: build
 
   run:
-    desc: Boot the workstation image in QEMU
     cmds:
       - task: ensure-built
       - PUFFIN_FLAVOR=workstation PUFFIN_GRAPHICS=1 '{{.ROOT}}/dev/qemu.sh'
 
   check:
-    desc: Validate and boot-check the workstation image
     cmds:
       - task: ensure-built
       - >-
@@ -81,6 +60,5 @@ tasks:
       - PUFFIN_FLAVOR=workstation '{{.ROOT}}/dev/qemu.sh' --check
 
   reset:
-    desc: Remove persistent workstation VM state
     cmds:
       - rm -f -- '{{.ROOT}}/state/puffin-workstation.qcow2' '{{.ROOT}}/state/OVMF_VARS-workstation.fd'
